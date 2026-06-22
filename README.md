@@ -4,7 +4,7 @@
 const Views = (() => {
   const { el, $, $$, esc, lazyImg, observeReveals, toast } = UI;
   const app = () => $('#app');
-
+s
   /* ---------- shared poster card ---------- */
   function posterCard(item, i = 0, extras = {}) {
     const type = extras.type || item.media_type || (item.first_air_date || item.type === 'tv' ? 'tv' : 'movie');
