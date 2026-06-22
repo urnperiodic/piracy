@@ -1,0 +1,103 @@
+/* ============================================================
+   UI HELPERS — DOM utils, toasts, theme application, reveal observer
+   ============================================================ */
+const UI = (() => {
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+
+  function el(tag, attrs = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'html') node.innerHTML = v;
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else if (k === 'dataset') Object.assign(node.dataset, v);
+      else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
+    }
+    for (const c of children.flat()) {
+      if (c == null || c === false) continue;
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return node;
+  }
+
+  const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+  /* Toast */
+  function toast(msg, kind = '') {
+    const stack = $('#toastStack');
+    const icon = kind === 'err' ? 'fa-circle-exclamation' : kind === 'ok' ? 'fa-circle-check' : 'fa-circle-info';
+    const t = el('div', { class: `toast ${kind}` }, el('i', { class: `fa-solid ${icon}` }), msg);
+    stack.appendChild(t);
+    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 360); }, 3200);
+  }
+
+  /* hex util */
+  const hexToRgb = hex => {
+    hex = hex.replace('#','');
+    return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)].join(', ');
+  };
+
+  /* Apply theme/mode/accent to <html> */
+  function applyAppearance() {
+    const s = Store.settings;
+    const html = document.documentElement;
+
+    // smooth cross-fade
+    html.classList.add('theme-transition');
+    clearTimeout(applyAppearance._t);
+    applyAppearance._t = setTimeout(() => html.classList.remove('theme-transition'), 360);
+
+    html.setAttribute('data-theme', s.theme);
+
+    let mode = s.mode;
+    if (mode === 'system') {
+      mode = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    html.setAttribute('data-mode', mode);
+
+    html.style.setProperty('--accent-user', '#' + s.accent);
+    html.style.setProperty('--accent-rgb', hexToRgb(s.accent));
+    html.setAttribute('data-reduce-motion', s.reduceMotion ? 'true' : 'false');
+
+    // mode toggle icon
+    const mt = $('#modeToggle i');
+    if (mt) mt.className = mode === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', mode === 'light' ? '#f4f5f8' : '#0a0a0f');
+  }
+
+  /* Scroll reveal */
+  let revObserver;
+  function observeReveals(root = document) {
+    if (Store.settings.reduceMotion) { $$('.reveal', root).forEach(n => n.classList.add('in')); return; }
+    if (!revObserver) {
+      revObserver = new IntersectionObserver((entries) => {
+        entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); revObserver.unobserve(en.target); } });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.04 });
+    }
+    $$('.reveal:not(.in)', root).forEach(n => revObserver.observe(n));
+  }
+
+  /* Lazy image: uses native loading=lazy + decode async; placeholder shimmer */
+  function lazyImg(src, alt = '', cls = '') {
+    const img = el('img', { class: cls, alt, loading: 'lazy', decoding: 'async' });
+    if (src) {
+      img.src = src;
+      img.addEventListener('error', () => { img.style.opacity = '.3'; }, { once: true });
+    }
+    return img;
+  }
+
+  /* skeleton poster card */
+  function skelCard() {
+    return el('div', {}, el('div', { class: 'skeleton skel-poster' }),
+      el('div', { class: 'skeleton skel-line' }), el('div', { class: 'skeleton skel-line short' }));
+  }
+
+  /* debounce */
+  function debounce(fn, ms) {
+    let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  }
+
+  return { $, $$, el, esc, toast, applyAppearance, observeReveals, lazyImg, skelCard, debounce, hexToRgb };
+})();
